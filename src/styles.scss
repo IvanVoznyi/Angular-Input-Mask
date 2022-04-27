@@ -1,1 +1,21 @@
-/* You can add global styles to this file, and also import other style files */
+body {
+  display: grid;
+  align-content: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: #1e1e1e;
+
+  label {
+      color: white;
+  }
+
+  input {
+      outline: none;
+  }
+
+  input {
+      border: 1px solid white;
+      background-color: #1e1e1e;
+      color: white;
+  }
+}
