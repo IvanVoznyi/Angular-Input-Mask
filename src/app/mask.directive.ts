@@ -26,6 +26,31 @@ export class MaskDirective implements OnInit {
     const input = this.element.nativeElement;
     input.value = this.mask;
 
+    const maskIndexInsertText = new Map();
+    const maskIndexDeleteText = new Map();
+
+    for (let index = 0; index < this.mask.length; index++) {
+      if (!maskCharacter.includes(this.mask[index])) {
+        for (let i = index; i < this.mask.length; i++) {
+          if (maskCharacter.includes(this.mask[i])) {
+            maskIndexInsertText.set(index, i);
+            break;
+          }
+        }
+      }
+    }
+
+    for (let index = this.mask.length; index > 0; index--) {
+      if (!maskCharacter.includes(this.mask[index]) && this.mask[index]) {
+        for (let i = index; i > 0; i--) {
+          if (maskCharacter.includes(this.mask[i - 1])) {
+            maskIndexDeleteText.set(index, i);
+            break;
+          }
+        }
+      }
+    }
+
     const getTextBeforeTyping = (inputData: InputData) =>
       inputData.value.slice(0, inputData.selectionEnd);
 
@@ -73,7 +98,7 @@ export class MaskDirective implements OnInit {
             value: input.value,
           };
         }),
-        map((inputData) => {         
+        map((inputData) => {
           if (inputData.inputType === 'insertText') {
             if (!maskCharacter.includes(this.mask[inputData.selectionStart])) {
               inputData.selectionEnd = inputData.selectionStart;
@@ -84,11 +109,9 @@ export class MaskDirective implements OnInit {
 
             input.value = `${beforeInsertText}${afterInsertText}`;
 
-            input.selectionEnd = selectionEnd(
-              inputData,
-              inputData.selectionEnd,
-              inputData.selectionEnd + 1
-            );
+            input.selectionEnd = maskIndexInsertText.has(inputData.selectionEnd)
+              ? maskIndexInsertText.get(inputData.selectionEnd)
+              : inputData.selectionEnd;
           } else {
             const beforeDeleteText = getTextBeforeTyping(inputData);
             const maskCharacter = this.mask[inputData.selectionEnd];
@@ -96,11 +119,9 @@ export class MaskDirective implements OnInit {
 
             input.value = `${beforeDeleteText}${maskCharacter}${afterDeleteText}`;
 
-            input.selectionEnd = selectionEnd(
-              inputData,
-              inputData.selectionStart,
-              inputData.selectionEnd - 1
-            );
+            input.selectionEnd = maskIndexDeleteText.has(inputData.selectionEnd)
+              ? maskIndexDeleteText.get(inputData.selectionEnd)
+              : inputData.selectionEnd;
           }
           return input.value;
         }),
