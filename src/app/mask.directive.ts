@@ -100,7 +100,7 @@ export class MaskDirective implements OnInit {
             input.selectionEnd = select.selectionStart;
           }  
 
-          if (selectionEnd >= this.mask.length && !isSelected) {
+          if (selectionEnd >= this.mask.length && !isSelected) {           
             input.value = input.value.slice(0, this.mask.length);
           }
 
