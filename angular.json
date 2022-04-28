@@ -20,6 +20,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:browser",
           "options": {
+            "baseHref": "https://ivanvoznyi.github.io/Angular-Input-Mask-With-RxJS/",
             "outputPath": "docs",
             "index": "src/index.html",
             "main": "src/main.ts",
