@@ -1,6 +1,14 @@
 //mask.directive.ts
 import { Directive, ElementRef, Input, OnInit } from '@angular/core';
-import { filter, fromEvent, map } from 'rxjs';
+import {
+  filter,
+  fromEvent,
+  map,
+  merge,
+  startWith,
+  tap,
+  withLatestFrom,
+} from 'rxjs';
 
 interface InputData {
   inputType: string;
@@ -26,30 +34,30 @@ export class MaskDirective implements OnInit {
     const input = this.element.nativeElement;
     input.value = this.mask;
 
-    const maskIndexInsertText = new Map();
-    const maskIndexDeleteText = new Map();
-
-    for (let index = 0; index < this.mask.length; index++) {
-      if (!maskCharacter.includes(this.mask[index])) {
-        for (let i = index; i < this.mask.length; i++) {
-          if (maskCharacter.includes(this.mask[i])) {
-            maskIndexInsertText.set(index, i);
-            break;
-          }
-        }
-      }
-    }
-
-    for (let index = this.mask.length; index > 0; index--) {
-      if (!maskCharacter.includes(this.mask[index]) && this.mask[index]) {
-        for (let i = index; i > 0; i--) {
-          if (maskCharacter.includes(this.mask[i - 1])) {
-            maskIndexDeleteText.set(index, i);
-            break;
-          }
-        }
-      }
-    }
+    const dragStartEvent = fromEvent<DragEvent>(input, 'dragstart').pipe(
+      tap((event) => event.preventDefault())
+    );
+    const inputEvent = fromEvent<InputEvent>(input, 'input');
+    const selectEvent = fromEvent(input, 'select').pipe(
+      startWith({
+        type: '',
+        target: {
+          value: input.value,
+          selectionEnd: 0,
+          selectionStart: 0,
+        },
+      }),
+      map((event) => {
+        return {
+          target: event,
+          value: (event.target as HTMLInputElement).value,
+          type: event.type,
+          selectionEnd: (event.target as HTMLInputElement).selectionEnd ?? 0,
+          selectionStart:
+            (event.target as HTMLInputElement).selectionStart ?? 0,
+        };
+      })
+    );
 
     const getTextBeforeTyping = (inputData: InputData) =>
       inputData.value.slice(0, inputData.selectionEnd);
@@ -74,32 +82,46 @@ export class MaskDirective implements OnInit {
         ? nextIndexSelection
         : inputData.selectionEnd;
 
-    fromEvent<InputEvent>(input, 'input')
+    merge(inputEvent, dragStartEvent)
       .pipe(
         filter((event) => {
+          return !(event instanceof DragEvent);
+        }),
+        withLatestFrom(selectEvent),
+        filter(([event, select]) => {
           const input = event.target as HTMLInputElement;
           const selectionEnd = input.selectionEnd ?? 0;
+          const isSelected = select.selectionEnd > select.selectionStart;
 
-          if (selectionEnd >= this.mask.length) {
+          if(isSelected) {
+            select.selectionEnd = select.selectionStart;
+            input.value = select.value;
+            input.selectionStart = select.selectionStart;
+            input.selectionEnd = select.selectionStart;
+          }  
+
+          if (selectionEnd >= this.mask.length && !isSelected) {
             input.value = input.value.slice(0, this.mask.length);
           }
 
-          return selectionEnd < this.mask.length + 1;
+          return selectionEnd < this.mask.length + 1 && !isSelected
         }),
-        map((event) => {
+        map(([event]) => {
           const input = event.target as HTMLInputElement;
-          const start = (input.selectionStart ?? 0) - 1;
-          const selectionStart = start < 0 ? 0 : start;
+          let selectionStart = input.selectionStart ?? 0;
+          let selectionEnd = input.selectionEnd ?? 0;
+          let value = input.value;
 
           return {
-            inputType: event.inputType,
-            selectionStart,
-            selectionEnd: input.selectionEnd ?? 0,
-            value: input.value,
+            inputType: (event as InputEvent).inputType,
+            selectionStart: selectionStart - 1,
+            selectionEnd: selectionEnd,
+            value: value
           };
         }),
         map((inputData) => {
           if (inputData.inputType === 'insertText') {
+            const oneCharacter = 1;
             if (!maskCharacter.includes(this.mask[inputData.selectionStart])) {
               inputData.selectionEnd = inputData.selectionStart;
             }
@@ -109,9 +131,11 @@ export class MaskDirective implements OnInit {
 
             input.value = `${beforeInsertText}${afterInsertText}`;
 
-            input.selectionEnd = maskIndexInsertText.has(inputData.selectionEnd)
-              ? maskIndexInsertText.get(inputData.selectionEnd)
-              : inputData.selectionEnd;
+            input.selectionEnd = selectionEnd(
+              inputData,
+              inputData.selectionEnd,
+              inputData.selectionEnd + oneCharacter
+            );
           } else {
             const beforeDeleteText = getTextBeforeTyping(inputData);
             const maskCharacter = this.mask[inputData.selectionEnd];
@@ -119,9 +143,11 @@ export class MaskDirective implements OnInit {
 
             input.value = `${beforeDeleteText}${maskCharacter}${afterDeleteText}`;
 
-            input.selectionEnd = maskIndexDeleteText.has(inputData.selectionEnd)
-              ? maskIndexDeleteText.get(inputData.selectionEnd)
-              : inputData.selectionEnd;
+            input.selectionEnd = selectionEnd(
+              inputData,
+              inputData.selectionStart,
+              inputData.selectionEnd
+            );
           }
           return input.value;
         }),
