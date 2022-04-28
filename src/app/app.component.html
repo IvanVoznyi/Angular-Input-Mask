@@ -1,8 +1,8 @@
-<!-- app.component.html -->
 <label for="phoneNumber">Phone Number</label>
 <input
   mask="(___) ___-____"
   validation="\(\d{3}\) \d{3}-\d{4}"
+  (maskInput)="phoneNumber($event)"
   type="text"
   id="phoneNumber"
 />
@@ -10,6 +10,7 @@
 <input
   mask="__/__/____"
   validation="\d{2}\/\d{2}\/\d{4}"
+  (maskInput)="date($event)"
   type="text"
   id="date"
 />
@@ -17,6 +18,7 @@
 <input
   mask="#### #### #### ####"
   validation="\d{4} \d{4} \d{4} \d{4}"
+  (maskInput)="creditCard($event)"
   type="text"
   id="creditCard"
 />

@@ -1,11 +1,20 @@
 //mask.directive.ts
-import { Directive, ElementRef, Input, OnInit } from '@angular/core';
+import {
+  Directive,
+  ElementRef,
+  EventEmitter,
+  Input,
+  OnDestroy,
+  OnInit,
+  Output,
+} from '@angular/core';
 import {
   filter,
   fromEvent,
   map,
   merge,
   startWith,
+  Subscription,
   tap,
   withLatestFrom,
 } from 'rxjs';
@@ -20,12 +29,17 @@ interface InputData {
 @Directive({
   selector: '[mask], [validation]',
 })
-export class MaskDirective implements OnInit {
+export class MaskDirective implements OnInit, OnDestroy {
   @Input('mask')
   mask: string = '';
 
   @Input('validation')
   validation: string = '';
+
+  @Output()
+  maskInput: EventEmitter<string> = new EventEmitter();
+
+  private subscription: Subscription | null = null;
 
   constructor(private element: ElementRef<HTMLInputElement>) {}
 
@@ -82,7 +96,7 @@ export class MaskDirective implements OnInit {
         ? nextIndexSelection
         : inputData.selectionEnd;
 
-    merge(inputEvent, dragStartEvent)
+    this.subscription = merge(inputEvent, dragStartEvent)
       .pipe(
         filter((event) => {
           return !(event instanceof DragEvent);
@@ -93,18 +107,18 @@ export class MaskDirective implements OnInit {
           const selectionEnd = input.selectionEnd ?? 0;
           const isSelected = select.selectionEnd > select.selectionStart;
 
-          if(isSelected) {
+          if (isSelected) {
             select.selectionEnd = select.selectionStart;
             input.value = select.value;
             input.selectionStart = select.selectionStart;
             input.selectionEnd = select.selectionStart;
-          }  
+          }
 
-          if (selectionEnd >= this.mask.length && !isSelected) {           
+          if (selectionEnd >= this.mask.length && !isSelected) {
             input.value = input.value.slice(0, this.mask.length);
           }
 
-          return selectionEnd < this.mask.length + 1 && !isSelected
+          return selectionEnd < this.mask.length + 1 && !isSelected;
         }),
         map(([event]) => {
           const input = event.target as HTMLInputElement;
@@ -116,7 +130,7 @@ export class MaskDirective implements OnInit {
             inputType: (event as InputEvent).inputType,
             selectionStart: selectionStart - 1,
             selectionEnd: selectionEnd,
-            value: value
+            value: value,
           };
         }),
         map((inputData) => {
@@ -153,6 +167,12 @@ export class MaskDirective implements OnInit {
         }),
         filter((value) => new RegExp(this.validation, 'gi').test(value))
       )
-      .subscribe((val) => console.log(val));
+      .subscribe((val) => this.maskInput.emit(val));
+  }
+
+  ngOnDestroy(): void {
+    if (this.subscription) {
+      this.subscription.unsubscribe();
+    }
   }
 }
